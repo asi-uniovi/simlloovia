@@ -321,8 +321,9 @@ class Vm():
         sec_used = self.sec_used
 
         # If a request is being processed, add the time from when the request
-        # started until now
-        if self.current_req_start:
+        # started until now. Notice that we have to check explicitily different
+        # from None because 0 is a valid value
+        if self.current_req_start != None:
             sec_used += self.env.now - self.current_req_start
 
         util = sec_used/self.__sec_running()
