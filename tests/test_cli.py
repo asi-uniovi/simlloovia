@@ -89,6 +89,13 @@ class TestCliModule(unittest.TestCase):
         assert last_util_row.ic == 'priv'
         assert last_util_row.util == 1
 
+    def test_cli_with_config_file(self):
+        runner = CliRunner()
+        runner.echo_stdin = True
+        result = runner.invoke(cli.simulate, ["--config", "tests/config_test"])
+
+        assert result.exit_code == 0
+
     def setUp(self):
         core.Vm.count = 0
 

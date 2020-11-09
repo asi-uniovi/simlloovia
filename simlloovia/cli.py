@@ -6,6 +6,7 @@ import pickle
 from dataclasses import asdict
 
 import click
+import click_config_file
 import pandas as pd
 
 from .simulator import Simulator
@@ -41,6 +42,7 @@ def save_vm_utils(output_prefix: str, output_dir: str,
 @click.option('--trace', type=bool, required=False, help='Enable tracing')
 @click.option('--save-evs', type=bool, required=False, help='Save request events')
 @click.option('--save-utils', type=bool, required=False, help='Save utilization per VM')
+@click_config_file.configuration_option(implicit=False)
 def simulate(sol_file, workload, workload_period, output_prefix, output_dir,
         workload_length, trace, save_evs, save_utils):
     sys.stdout = open(f'{output_dir}/{output_prefix}_out.txt', 'w')

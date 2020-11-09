@@ -1,0 +1,5 @@
+sol_file="tests/sols/basic.p"
+output_prefix="clitest"
+output_dir="."
+workload_length=3600
+save_evs=True
