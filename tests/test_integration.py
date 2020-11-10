@@ -68,8 +68,8 @@ class TestBasic(unittest.TestCase):
 
     def test_no_request(self):
         '''Tests reading a Malloovia SolutionI file and simulating it with a
-        different workload (constant) but with a workload_length so short that no
-        request is completely processed'''
+        different workload (constant) but with a workload_length so short that
+        no request is completely processed'''
         with open('tests/sols/basic.p', 'rb') as f:
             sol = pickle.load(f)
 
