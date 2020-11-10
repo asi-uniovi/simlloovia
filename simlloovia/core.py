@@ -11,7 +11,7 @@ from typing import Sequence, List, Dict, Optional, Tuple
 import simpy
 
 from malloovia import (InstanceClass, PerformanceSet, PerformanceValues, App,
-    AllocationInfo, Workload, TimeUnit)
+    AllocationInfo, Workload, TimeUnit, ReservedAllocation)
 
 from .monitor import Monitor
 
@@ -468,8 +468,8 @@ class VmManager:
     '''
 
     def __init__(self, env: simpy.Environment,
-            reserved_allocation: AllocationInfo,
-            perf_values: PerformanceValues, load_balancer: LoadBalancer,
+            reserved_allocation: ReservedAllocation,
+            perf_values: PerformanceSet, load_balancer: LoadBalancer,
             request_sink: RequestSink) -> None:
 
         self.env = env

@@ -6,7 +6,7 @@ from functools import wraps
 import simpy
 
 from malloovia import (PerformanceSet, AllocationInfo, SolutionI, Workload,
-    TimeUnit)
+    TimeUnit, ReservedAllocation)
 
 from .core import (WorkloadInjector, LoadBalancer, VmManager, RequestSink,
     MallooviaAllocator)
@@ -19,7 +19,7 @@ class Simulator():
     def __init__(self):
         self.monitor = Monitor()
 
-    def simulate(self, reserved_allocation: AllocationInfo,
+    def simulate(self, reserved_allocation: ReservedAllocation,
                 performances: PerformanceSet,
                 allocation: AllocationInfo,
                 allocation_workloads: Sequence[Workload],
@@ -31,7 +31,7 @@ class Simulator():
         """Simulates the system passed as arguments
 
         Args:
-            reserved_allocation (AllocationInfo): allocation of reserved VMs
+            reserved_allocation (ReservedAllocation): allocation of reserved VMs
             performances (PerformanceSet): performance of all instance classes
             allocation (AllocationInfo): allocations
             allocation_workloads (Sequence[Workload]): workload used in the
@@ -184,7 +184,7 @@ class Simulator():
         )
 
     def simulate_malloovia_workload(self, solution: SolutionI,
-                workloads: Sequence[Sequence[int]],
+                workloads: Sequence[Tuple[float]],
                 workload_period_sec: int,
                 workload_length: int=None,
                 animate: bool=True, speed: float=1,
