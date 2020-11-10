@@ -337,7 +337,9 @@ class Vm():
     def free_capacity(self):
         '''Returns the free capacity approximated by the 1 minus the proportion
         of requests per time unit that the VM can handle'''
-        return 1 - (self.current_reqs / self.perfs.values[self.ic, self.app])
+        perf = self.perfs.values[self.ic, self.app]
+        perf_sec = perf / TimeUnit(self.perfs.time_unit).to('s')
+        return 1 - (self.current_reqs / perf_sec)
 
     def get_pending_requests(self):
         '''Returns the number of pending requests for this VM. It includes the
