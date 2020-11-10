@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pulp
 from malloovia import (InstanceClass, App, PerformanceSet, PerformanceValues,
-    Problem, PhaseI, Status, Workload)
+    Problem, PhaseI, Status, Workload, solutions_to_yaml)
 
 ECUS = 1
 WL_LEN = 2 # Number of hours of the workload
@@ -87,6 +87,10 @@ def solve_problem(perf_factor, verbose=False):
 
     filename = 'sols/3vm.p'
     pickle.dump(phase_i_solution, open(filename, 'wb'))
+
+    yaml = solutions_to_yaml([phase_i_solution])
+    with open('sols/3vm.yaml', 'w') as f:
+        f.write(yaml)
 
     status = phase_i_solution.solving_stats.algorithm.status
     if status != Status.optimal:

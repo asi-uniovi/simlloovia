@@ -8,6 +8,7 @@ from dataclasses import asdict
 import click
 import click_config_file
 import pandas as pd
+import malloovia
 
 from .simulator import Simulator
 from .core import Vm
@@ -33,12 +34,16 @@ def save_vm_utils(output_prefix: str, output_dir: str,
 # pylint: disable=no-value-for-parameter
 @click.command()
 @click.option('--sol-file', type=str, required=True,
-    help='Malloovia solution file (pickle format)')
-@click.option('--workload', type=str, required=False, help='Workload prefix')
+    help='Malloovia solution file (".p" extension for pickle or ".yaml" for YAML)')
+@click.option('--workload', type=str, required=False,
+    help='Workload prefix. If missing, the workload in the solution file will '\
+         'be used')
 @click.option('--workload-period', type=int, required=False, help='Workload period in seconds')
 @click.option('--output-prefix', type=str, required=True, help='Output file')
 @click.option('--output-dir', type=str, required=True, help='Output directory')
-@click.option('--workload-length', type=int, required=True, help='Workload length (in number of periods) to simulate')
+@click.option('--workload-length', type=int, required=False,
+    help='Workload length (in number of periods) to simulate. If missing, all '\
+         'the workload file will be used')
 @click.option('--trace', type=bool, required=False, help='Enable tracing')
 @click.option('--save-evs', type=bool, required=False, help='Save request events')
 @click.option('--save-utils', type=bool, required=False, help='Save utilization per VM')
@@ -47,7 +52,17 @@ def simulate(sol_file, workload, workload_period, output_prefix, output_dir,
         workload_length, trace, save_evs, save_utils):
     sys.stdout = open(f'{output_dir}/{output_prefix}_out.txt', 'w')
 
-    sol = pickle.load(open(sol_file, 'rb'))
+    if sol_file.endswith('p'):
+        sol = pickle.load(open(sol_file, 'rb'))
+    elif sol_file.endswith('yaml'):
+        sols = malloovia.util.read_solutions_from_yaml(sol_file)
+        if len(sols) > 1:
+            print('WARNING: only the first solution in the file will be '\
+                  'simulated')
+        sol = list(sols.values())[0]
+    else:
+        raise Exception('The solution file extension has to be ".p" (for '\
+            'pickle) or ".yaml" (for YAML)')
 
     if workload and not workload_period:
         raise Exception('If workload is passed, the workload_period has to be passed')

@@ -96,6 +96,17 @@ class TestCliModule(unittest.TestCase):
 
         assert result.exit_code == 0
 
+    def test_cli_yaml(self):
+        """Test that the command line works with a YAML file"""
+
+        runner = CliRunner()
+        runner.echo_stdin = True
+        result = runner.invoke(cli.simulate, ["--sol-file",
+            "tests/sols/3vm.yaml", "--output-prefix", "clitest",
+            "--output-dir", "."])
+
+        assert result.exit_code == 0
+
     def setUp(self):
         core.Vm.count = 0
 

@@ -1,0 +1,73 @@
+Limiting_sets:
+
+Instance_classes:
+  - &ic_0x7f84cc75ab50
+    id: ic
+    name: ic
+    limiting_sets: []
+    max_vms: 3
+    price: 0.01
+    time_unit: h
+    is_reserved: false
+    cores: 1
+
+Apps:
+  - &a0_0x7f84d022b050
+    id: a0
+    name: 0
+
+Workloads:
+  - &ltwp_a0_0x7f84cc75add0
+    id: ltwp_a0
+    description: rph for 0
+    values: [9, 3]
+    app: *a0_0x7f84d022b050
+    time_unit: h
+    intra_slot_distribution: uniform
+
+Performances:
+  - &performances_0x7f84d02f0470
+    id: performances
+    time_unit: h
+    values:
+      - instance_class: *ic_0x7f84cc75ab50
+        app: *a0_0x7f84d022b050
+        value: 3
+Problems:
+  - &Hybrid_cloud_0x7f84cc6f1360
+    id: Hybrid cloud
+    name: Hybrid cloud
+    workloads: [*ltwp_a0_0x7f84cc75add0]
+    instance_classes: [*ic_0x7f84cc75ab50]
+    performances: *performances_0x7f84d02f0470
+    description: Nondescript
+
+Solutions:
+- &solution_i_Hybrid_cloud_0x7f84cc6ac750
+  id: solution_i_Hybrid cloud
+  problem: *Hybrid_cloud_0x7f84cc6f1360
+  solving_stats:
+    creation_time: 0.0006192699074745178
+    solving_time: 0.004748919978737831
+    optimal_cost: 0.04
+    algorithm:
+      malloovia:
+        gcd: true
+        status: optimal
+        gcd_multiplier: 1.0
+        frac_gap: 0.05
+        max_seconds: 132000
+        lower_bound: null
+  reserved_allocation:
+    instance_classes: []
+    vms_number: []
+  allocation:
+    instance_classes: [*ic_0x7f84cc75ab50]
+    apps: [*a0_0x7f84d022b050]
+    workload_tuples: [[9], [3]]
+    repeats: [1, 1]
+    vms_number:
+      - # 0 -> 3430011387534
+        - [3.0]
+      - # 1 -> 3430021387564
+        - [1.0]
