@@ -402,6 +402,11 @@ class WorkloadInjector():
     def __generate_requests(self, workload: Workload, time_slot: int):
         requests = workload.values[time_slot]
 
+        if isinstance(requests, float) and not requests.is_integer():
+            print('Warning: float values in workloads will be casted to int')
+
+        requests = int(requests)
+
         for _ in range(requests):
             req = Request(env=self.env, app=workload.app)
             self.out.add_request(req)
