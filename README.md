@@ -24,7 +24,12 @@ To use:
 simlloovia --sol-file=tests/sols/basic.p --output-prefix=test --output-dir=. --workload-length=3600 --save-evs=True
 ```
 
-- Check the results in the files `test_out.txt` and `test_reqs.csv`.
+- Check the results in the files `test_out.txt` and `test_reqs.csv`. A dashboard
+that summarizes the information graphically can be run with this command:
+
+```bash
+python dashboard_sim.py
+```
 
 - The parameters can also be passed with a configuration file using the option
 `--config FILE`.
