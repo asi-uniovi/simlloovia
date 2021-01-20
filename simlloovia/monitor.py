@@ -1,11 +1,21 @@
 '''This module defines two classes related to monitoring: SimulationStats and
 Monitor.
 '''
+from enum import Enum
 import time
 from typing import List
 from dataclasses import dataclass
 import statistics
 import numpy as np
+
+class EvType(Enum):
+    '''Represents an event type'''
+    VM_START=0
+    VM_END=1
+    VM_ASSIGN_APP=2
+    REQ_CREATION=3
+    REQ_START=4
+    REQ_END=5
 
 @dataclass
 class SimulationStats():
@@ -80,8 +90,9 @@ class Monitor():
         self.req_pending: int = 0
 
         self.response_times: List[float] = []
-        self.ev_times: List = []
+        self.req_times: List = []
         self.vm_utils = {}
+        self.events: List[str] = [] # List of events represented as strings
 
         self.sim_start: float = 0
         self.sim_end: float = 0
@@ -101,7 +112,7 @@ class Monitor():
         resp_time = req.response_time
         self.response_times.append(resp_time)
 
-        self.ev_times.append([req.creation_time, req.start_proc_time,
+        self.req_times.append([req.num, req.creation_time, req.start_proc_time,
                             req.end_proc_time, req.app, req.vm, req.lost])
 
     def add_req_lost(self, req):
@@ -169,10 +180,18 @@ class Monitor():
             sim_time=self.sim_end - self.sim_start,
             stats_time=stats_end - stats_start)
 
-    def get_ev_times(self):
+    def get_req_times(self):
         '''Return the event times of each request'''
-        return self.ev_times
+        return self.req_times
 
     def get_vm_utils(self):
         '''Return the utilizations of each VM'''
         return self.vm_utils
+
+    def add_event(self, ev):
+        '''Receives and event as a string and stores it'''
+        self.events.append(ev)
+
+    def get_events(self) -> List[str]:
+        '''Return the list of events'''
+        return self.events

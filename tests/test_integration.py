@@ -12,6 +12,7 @@ class TestBasic(unittest.TestCase):
             sim = Simulator()
 
             sim_stats = sim.simulate_malloovia(sol, workload_length=None,
+                                    quantum_sec=3600,
                                     animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 26280)
@@ -34,11 +35,12 @@ class TestBasic(unittest.TestCase):
                 workload_filename_prefix='tests/workloads/basic_short_sec_smooth/wl',
                 workload_period_sec=1,
                 workload_length=24*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 70)
             self.assertEqual(sim_stats.req_lost, 0)
-            self.assertEqual(sim_stats.req_pending, 2)
+            self.assertEqual(sim_stats.req_pending, 1)
             self.assertEqual(sim_stats.avg_resp_time, 1635.0857142857142)
             self.assertEqual(sim_stats.max_resp_time, 2734)
             self.assertAlmostEqual(sim_stats.cost, 0.31822500000000004)
@@ -57,6 +59,7 @@ class TestBasic(unittest.TestCase):
                 workload_filename_prefix='tests/workloads/basic_short_sec_constant/wl',
                 workload_period_sec=1,
                 workload_length=24*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 72)
@@ -70,6 +73,8 @@ class TestBasic(unittest.TestCase):
         '''Tests reading a Malloovia SolutionI file and simulating it with a
         different workload (constant) but with a workload_length so short that
         no request is completely processed'''
+        import os
+        print(f'cwd: {os.getcwd()}')
         with open('tests/sols/basic.p', 'rb') as f:
             sol = pickle.load(f)
 
@@ -80,6 +85,7 @@ class TestBasic(unittest.TestCase):
                 workload_filename_prefix='tests/workloads/basic_short_sec_constant/wl',
                 workload_period_sec=1,
                 workload_length=8,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 0)
@@ -112,14 +118,15 @@ class TestBasic(unittest.TestCase):
                 workload_filename_prefix='tests/workloads/lost_sec/wl',
                 workload_period_sec=1,
                 workload_length=4*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 2)
             self.assertEqual(sim_stats.req_lost, 1)
             self.assertEqual(sim_stats.req_pending, 0)
-            self.assertEqual(sim_stats.avg_resp_time, 1200)
-            self.assertEqual(sim_stats.max_resp_time, 1200)
-            self.assertAlmostEqual(sim_stats.cost, 0.04305277777777777)
+            self.assertAlmostEqual(sim_stats.avg_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.cost, 0.043052777777789895)
             self.assertAlmostEqual(sim_stats.util, 0.14717670426331843654678300347592)
 
     def test_util(self):
@@ -153,12 +160,13 @@ class TestBasic(unittest.TestCase):
                 workload_filename_prefix='tests/workloads/util_sec/wl',
                 workload_period_sec=1,
                 workload_length=4*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 3)
             self.assertEqual(sim_stats.req_lost, 0)
-            self.assertEqual(sim_stats.avg_resp_time, 1200)
-            self.assertEqual(sim_stats.max_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.avg_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
             self.assertAlmostEqual(sim_stats.cost, 0.04305277777777777)
             self.assertAlmostEqual(sim_stats.util,
                 0.23051003759665176988011633680925)
@@ -192,12 +200,13 @@ class TestBasic(unittest.TestCase):
                 workloads=workloads,
                 workload_period_sec=1,
                 workload_length=4*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 3)
             self.assertEqual(sim_stats.req_lost, 0)
-            self.assertEqual(sim_stats.avg_resp_time, 1200)
-            self.assertEqual(sim_stats.max_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.avg_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
             self.assertAlmostEqual(sim_stats.cost, 0.04305277777777777)
             self.assertAlmostEqual(sim_stats.util,
                 0.23051003759665176988011633680925)
@@ -229,12 +238,13 @@ class TestBasic(unittest.TestCase):
                 workloads=workloads,
                 workload_period_sec=1,
                 workload_length=4*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 4)
             self.assertEqual(sim_stats.req_lost, 0)
-            self.assertEqual(sim_stats.avg_resp_time, 1200)
-            self.assertEqual(sim_stats.max_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.avg_resp_time, 1200)
+            self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
             self.assertAlmostEqual(sim_stats.cost, 0.04)
             self.assertAlmostEqual(sim_stats.util, 1/3)
 
@@ -247,6 +257,7 @@ class TestBasic(unittest.TestCase):
             sim = Simulator()
 
             sim_stats = sim.simulate_malloovia(sol, workload_length=None,
+                                    quantum_sec=3600,
                                     animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 26280)
@@ -266,7 +277,7 @@ class Test3vm(unittest.TestCase):
             sim = Simulator()
 
             sim_stats = sim.simulate_malloovia(sol, workload_length=None,
-                                    animate=False, speed=0.1, trace=False)
+                quantum_sec=3600, animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 12)
             self.assertEqual(sim_stats.req_lost, 0)
@@ -295,6 +306,7 @@ class Test3vm(unittest.TestCase):
                 workloads=workloads,
                 workload_period_sec=1,
                 workload_length=2*3600,
+                quantum_sec=3600,
                 animate=False, speed=0.1, trace=False)
 
             self.assertEqual(sim_stats.req_proc, 4)

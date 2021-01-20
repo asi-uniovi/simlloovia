@@ -26,6 +26,7 @@ class Simulator():
                 period_allocation_sec: int,
                 injector_workloads: Sequence[Workload],
                 period_injector_sec: int,
+                quantum_sec: float,
                 workload_length: int=None, animate: bool=True, speed: float=1,
                 trace: bool=False) -> SimulationStats:
         """Simulates the system passed as arguments
@@ -40,6 +41,7 @@ class Simulator():
             injector_workloads (Sequence[Workload]): workloads to inject
             period_injector_sec (int): period used in the workload to inject
             workload_length (int, optional): number of periods of injection
+            quantum_sec (int, optional): number of seconds to use as quatum in CPUs
             animate (bool, optional): use animation. Defaults to True.
             speed (float, optional): sped of the simulation. Defaults to 1.
             trace (bool, optional): generate a trace. Defaults to False.
@@ -63,7 +65,9 @@ class Simulator():
         vm_manager = VmManager(env=env,
                         reserved_allocation=reserved_allocation,
                         perf_values=performances,
-                        load_balancer=load_balancer, request_sink=request_sink)
+                        load_balancer=load_balancer, request_sink=request_sink,
+                        monitor=self.monitor,
+                        quantum_sec=quantum_sec)
 
         allocator = MallooviaAllocator(env=env,
             allocation=allocation,
@@ -105,6 +109,7 @@ class Simulator():
         return stats
 
     def simulate_malloovia(self, solution: SolutionI, workload_length: int=None,
+                quantum_sec: float=0.1,
                 animate: bool=True, speed: float=1,
                 trace: bool=False) -> SimulationStats:
         '''This function simulates a Malloovia SolutionI sending all the requests
@@ -122,6 +127,7 @@ class Simulator():
             injector_workloads=solution.problem.workloads,
             period_injector_sec=period_sec,
             workload_length=workload_length,
+            quantum_sec=quantum_sec,
             animate=animate, speed=speed, trace=trace
         )
 
@@ -141,6 +147,7 @@ class Simulator():
                 workload_filename_prefix: str,
                 workload_period_sec: int,
                 workload_length: int=None,
+                quantum_sec: float=0.1,
                 animate: bool=True, speed: float=1,
                 trace: bool=False) -> SimulationStats:
         '''This function simulates a Malloovia SolutionI but takes the
@@ -180,6 +187,7 @@ class Simulator():
             injector_workloads=injector_workloads,
             period_injector_sec=workload_period_sec,
             workload_length=workload_length,
+            quantum_sec=quantum_sec,
             animate=animate, speed=speed, trace=trace
         )
 
@@ -187,6 +195,7 @@ class Simulator():
                 workloads: Sequence[Tuple[float]],
                 workload_period_sec: int,
                 workload_length: int=None,
+                quantum_sec: float=0.1,
                 animate: bool=True, speed: float=1,
                 trace: bool=False) -> SimulationStats:
         '''This function simulates a Malloovia SolutionI but takes the workload
@@ -235,11 +244,15 @@ class Simulator():
             injector_workloads=injector_workloads,
             period_injector_sec=workload_period_sec,
             workload_length=workload_length,
+            quantum_sec=quantum_sec,
             animate=animate, speed=speed, trace=trace
         )
 
-    def get_ev_times(self):
-        return self.monitor.get_ev_times()
+    def get_req_times(self):
+        return self.monitor.get_req_times()
+
+    def get_events(self):
+        return self.monitor.get_events()
 
     def get_vm_utils(self):
         return self.monitor.get_vm_utils()

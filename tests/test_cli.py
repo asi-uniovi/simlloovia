@@ -18,7 +18,7 @@ class TestCliModule(unittest.TestCase):
         runner = CliRunner()
         result = runner.invoke(cli.simulate, ["--sol-file", "tests/sols/basic.p",
             "--output-prefix", "clitest", "--output-dir", ".",
-            "--workload-length", "3600"])
+            "--workload-length", "3600", "--quantum", "3600"])
 
         assert result.exit_code == 0
 
@@ -35,7 +35,8 @@ class TestCliModule(unittest.TestCase):
         runner.echo_stdin = True
         result = runner.invoke(cli.simulate, ["--sol-file", "tests/sols/basic.p",
             "--output-prefix", "clitest", "--output-dir", ".",
-            "--workload-length", "3600", "--save-evs", "true"])
+            "--workload-length", "3600", "--quantum", "3600",
+            "--save-evs", "true"])
 
         assert result.exit_code == 0
 
@@ -65,7 +66,8 @@ class TestCliModule(unittest.TestCase):
         runner.echo_stdin = True
         result = runner.invoke(cli.simulate, ["--sol-file", "tests/sols/basic.p",
             "--output-prefix", "clitest", "--output-dir", ".",
-            "--workload-length", "3600", "--save-utils", "true"])
+            "--workload-length", "3600", "--quantum", "3600",
+            "--save-utils", "true"])
 
         assert result.exit_code == 0
 
@@ -103,12 +105,13 @@ class TestCliModule(unittest.TestCase):
         runner.echo_stdin = True
         result = runner.invoke(cli.simulate, ["--sol-file",
             "tests/sols/3vm.yaml", "--output-prefix", "clitest",
-            "--output-dir", "."])
+            "--output-dir", ".", "--quantum", "3600"])
 
         assert result.exit_code == 0
 
     def setUp(self):
         core.Vm.count = 0
+        core.Request.count = 0
 
     def tearDown(self):
         files = glob.glob("clitest*")

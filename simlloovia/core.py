@@ -5,6 +5,7 @@ and using simpy.
 It assumes one simulation tick is one second."""
 
 import time
+from sys import float_info
 from collections import defaultdict
 from itertools import islice
 from typing import Sequence, List, Dict, Optional, Tuple
@@ -13,7 +14,7 @@ import simpy
 from malloovia import (InstanceClass, PerformanceSet, PerformanceValues, App,
     AllocationInfo, Workload, TimeUnit, ReservedAllocation)
 
-from .monitor import Monitor
+from .monitor import Monitor, EvType
 
 class Request():
     '''Data object to save the creation, start_proc and end_proc times of a
@@ -35,13 +36,16 @@ class Request():
         Request.count += 1
 
         self.creation_time: float = env.now
-        self.start_proc_time: float = -1
-        self.end_proc_time: float = -1
+        self.start_proc_time: float = -float_info.max  # Not initialized
+        self.end_proc_time: float = -float_info.max  # Not initialized
         self.lost: bool = False # True when it cannot be processed
         self.vm: Optional[Vm] = None # VM that processed the request
 
     def start_proc(self, vm: 'Vm'):
         '''Indicate that the processing of the requests has started'''
+        if self.start_proc_time != -float_info.max:
+            return  # Already started
+
         self.start_proc_time = self.env.now
         self.vm = vm
 
@@ -115,7 +119,7 @@ class LoadBalancer():
             return
 
         # Look for the VM for this app with maximum free capacity
-        max_vm = max(vms_for_app, key=lambda vm: vm.free_capacity())
+        max_vm = min(vms_for_app, key=lambda vm: vm.remaining_processing_time_sec())
 
         max_vm.add_request(req)
 
@@ -144,7 +148,7 @@ class LoadBalancer():
             for vm in vms_for_app:
                 vm.end_sim()
 
-class Vm():
+class Vm:
     '''Simulates a virtual machine of a fixed instance class. It can only
     process requests from one app at any given time, assigned with the method
     assign_app().
@@ -165,84 +169,105 @@ class Vm():
             Where to send the request after it has been processed
         load_balancer: load balancer to register the VM as available for being
             used in a schedule
+        quantum_sec: Number of seconds used as quantum in CPUs
     '''
     count = 0 # Number of VMs created. Used for naming new VMs
 
     def __init__(self, env: simpy.Environment, ic: InstanceClass,
-                perfs: PerformanceSet, out, load_balancer: LoadBalancer):
+                perfs: PerformanceSet, out, load_balancer: LoadBalancer,
+                monitor: Monitor, quantum_sec: float):
         self.env = env
         self.num = Vm.count
         Vm.count += 1
 
-        self.app = None # Initially, no app assigned
+        self.app: Optional[App] = None # Initially, no app assigned
         self.keep: bool = False # Initially, it doesn't matter
         self.is_shutting_down: bool = False # Initially, it isn't shutting down
-        self.time_comp_ends = None # Indicates when the current computation ends
 
-        self.store = simpy.Store(env)
-        self.current_reqs: int = 0 # In the queue or being processed
-        self.current_proc_req: Optional[float]  = None # Request being processed now
+        self.current_proc_reqs: List[Request]  = [] # Requests being processed now
+        self.current_req_start: Dict[Request, float] = {}  # No req being processed
+        self.current_req_remaining_sec: Dict[Request, float] = {}  # No req being processed
 
         self.ic: InstanceClass = ic
         self.perfs: PerformanceSet = perfs
 
         self.out = out
         self.load_balancer = load_balancer
+        self.quantum_sec = quantum_sec
+
+        # Not initialized until the app is assigned
+        self.serv_time_sec: float = -float_info.max
 
         # Fields por computing the utilization and the cost
         self.start_time: float = env.now # The VM starts when created
-        self.stop_time: Optional[float] = None # Set when the machine stops
+        self.stop_time: float = -float_info.max # Set when the machine stops
         self.sec_used: float = 0 # Accumulated seconds used in computing requests
-        self.current_req_start: Optional[float] = None
+        self.time_comp_ends: Dict[Request, float] = {} # Indicates when the current computation ends
 
-        self.action = env.process(self.__process())
+        self.monitor = monitor
+        self.monitor.add_event(f'{self.env.now},{EvType.VM_START.value},{self.num},{self.ic.id},{self.ic.price}')
+
+        self.cores = simpy.Resource(env, capacity=ic.cores)
+
+    def __perf_sec(self, app: App):
+        perf = self.perfs.values[self.ic, app]
+        return perf / TimeUnit(self.perfs.time_unit).to('s')
 
     def __service_time_sec(self, app: App):
-        perf = self.perfs.values[self.ic, app]
-        perf_sec = perf / TimeUnit(self.perfs.time_unit).to('s')
-        return 1/perf_sec
+        return self.ic.cores / self.__perf_sec(app)
 
-    def __process(self):
-        while True:
-            if self.is_shutting_down and len(self.store.items) == 0:
-                self.stop_time = self.env.now
-                break # No more processing to do. VM is really stopped
+    def __process_req(self, req: Request):
+        if req.app != self.app:
+            msg = 'Invalid app for this VM {}. Expected: {}. Received: {}'\
+                ' Time: {}'.format(self.name(), self.app, req.app,
+                self.env.now)
+            raise Exception(msg)
 
-            req = (yield self.store.get())
+        with self.cores.request() as core:
+            yield core
 
-            if req.app != self.app:
-                msg = 'Invalid app for this VM {}. Expected: {}. Received: {}'\
-                    ' Time: {}'.format(self.name(), self.app, req.app,
-                    self.env.now)
-                raise Exception(msg)
+            if self.current_req_remaining_sec[req] == self.serv_time_sec:  # First quantum
+                req.start_proc(self)
+                self.monitor.add_event(f'{self.env.now},{EvType.REQ_START.value},{req.num},{self.num},{self.app.id}')
 
-            req.start_proc(self)
+            req_remaining_sec = self.current_req_remaining_sec[req]
+            processing_time_sec = min(self.quantum_sec, req_remaining_sec)
 
-            self.current_proc_req = req
+            self.current_proc_reqs.append(req)
+            self.current_req_start[req] = self.env.now
+            self.time_comp_ends[req] = self.env.now + processing_time_sec
 
-            serv_time_sec = self.__service_time_sec(req.app)
-            self.time_comp_ends = self.env.now + serv_time_sec
-            self.current_req_start = self.env.now
+            yield self.env.timeout(processing_time_sec)
 
-            yield self.env.timeout(serv_time_sec)
+            self.current_proc_reqs.remove(req)
+            del self.time_comp_ends[req]
+            del self.current_req_start[req]
 
-            self.time_comp_ends = None
-            self.current_req_start = None
+            self.current_req_remaining_sec[req] -= processing_time_sec
+            self.sec_used += processing_time_sec
 
-            # This is used to compute the utilization
-            self.sec_used += serv_time_sec
+            if self.current_req_remaining_sec[req] > float_info.epsilon:
+                # More processing required
+                self.add_request(req)  # Ask for another quantum
+            else:
+                # Done
+                req.end_proc()
+                del self.current_req_remaining_sec[req]
+                self.monitor.add_event(f'{self.env.now},{EvType.REQ_END.value},{req.num}')
+                self.out.add_request(req)
 
-            req.end_proc()
-
-            self.current_reqs -= 1
-            self.current_proc_req = None
-
-            self.out.add_request(req)
+                # Notice that cores.count has to be 1 because we are still
+                # inside the "with self.cores.request()"
+                if self.is_shutting_down and self.cores.count == 1 and not self.cores.queue:
+                    self.stop_time = self.env.now
+                    self.monitor.add_event(f'{self.env.now},{EvType.VM_END.value},{self.num}')
 
     def add_request(self, req):
         '''Receive a request that must be processed'''
-        self.current_reqs += 1
-        self.store.put(req)
+        if req not in self.current_req_remaining_sec:  # New request
+            self.current_req_remaining_sec[req] = self.serv_time_sec
+
+        self.env.process(self.__process_req(req))
 
     def begin_shutdown(self):
         '''Indicate that the VM has to start the shutdown process. Thus, it will
@@ -256,28 +281,31 @@ class Vm():
             print(f'WARNING: shutting down VM {self.name()}, which is still'
                   f' executing a request at time {self.env.now}')
 
-        if self.store.items:
+        if len(self.cores.queue) > 0:
             print(f'WARNING: shutting down VM {self.name()} with'
-                f' {len(self.store.items)} pending requests at time'
+                f' {len(self.cores.queue)} pending requests at time'
                 f' {self.env.now}')
 
-        self.load_balancer.remove_vm(self)
+        self.load_balancer.remove_vm(self)  # So that it doesn't receive more requests
 
         self.is_shutting_down = True
 
-        if self.is_free(): # The VM can be really stopped
+        if self.is_free():  # The VM can be really stopped
             self.stop_time = self.env.now
+            self.monitor.add_event(f'{self.env.now},{EvType.VM_END.value},{self.num}')
 
     def is_computing(self):
-        '''Returns true is there is no computation going on or the current
+        '''Returns true is there is computation going on or the current
         computation is scheduled to finish later. Notice that there migth be a
         request still executing that finishes in this same moment but hasn't
         still been processed'''
-        return self.time_comp_ends != None and self.time_comp_ends > self.env.now
+        now = self.env.now
+        comp_end_values = self.time_comp_ends.values()
+        return self.cores.count > 0 and all(i > now for i in comp_end_values)
 
     def requests_in_queue_or_processing(self):
         '''Indicate if there are requests in the queue or processing'''
-        return self.store.items or self.is_computing()
+        return self.cores.queue or self.is_computing()
 
     def is_free(self):
         '''Returns True is there is no app asigned or there are no requests,
@@ -291,6 +319,11 @@ class Vm():
             msg = f'{self.name()} ({self.ic.name}) cannot be changed from'\
                   f' {self.app} to {app} at time slot {self.env.now}'
             raise Exception(msg)
+
+        if self.app != app:
+            self.monitor.add_event(f'{self.env.now},{EvType.VM_ASSIGN_APP.value},{self.num},{app.id},{self.__perf_sec(app)}')
+
+        self.serv_time_sec = self.__service_time_sec(app)
 
         self.app = app
         self.load_balancer.update_vm_pool(self)
@@ -308,7 +341,7 @@ class Vm():
     def __sec_running(self):
         '''Returns the seconds the VM has been running until now (or when it
         stopped).'''
-        end_time = self.stop_time if self.stop_time else self.env.now
+        end_time = self.stop_time if self.stop_time != -float_info.max else self.env.now
         return end_time - self.start_time
 
     def compute_cost(self):
@@ -320,13 +353,12 @@ class Vm():
         it stopped).'''
         sec_used = self.sec_used
 
-        # If a request is being processed, add the time from when the request
-        # started until now. Notice that we have to check explicitily different
-        # from None because 0 is a valid value
-        if self.current_req_start != None:
-            sec_used += self.env.now - self.current_req_start
+        # For requests being processed, add the time from when they started
+        # until now.
+        for start in self.current_req_start.values():
+            sec_used += self.env.now - start
 
-        util = sec_used/self.__sec_running()
+        util = (sec_used/self.__sec_running()) / self.ic.cores
 
         return util
 
@@ -334,41 +366,51 @@ class Vm():
         '''Returns the name of the VM'''
         return 'VM {}'.format(self.num)
 
-    def free_capacity(self):
+    def free_capacity(self) -> float:
         '''Returns the free capacity approximated by the 1 minus the proportion
         of requests per time unit that the VM can handle'''
-        perf = self.perfs.values[self.ic, self.app]
-        perf_sec = perf / TimeUnit(self.perfs.time_unit).to('s')
-        return 1 - (self.current_reqs / perf_sec)
+        req_count = len(self.current_req_remaining_sec)
+        return 1 - (req_count / self.__perf_sec(self.app))
+
+    def remaining_processing_time_sec(self) -> float:
+        '''Returns how many seconds have to be processed with the assigned
+        requests'''
+        return sum(self.current_req_remaining_sec.values())/self.ic.cores
 
     def get_pending_requests(self):
         '''Returns the number of pending requests for this VM. It includes the
-        request currently being executed (if it doesn't finish in this time
+        requests currently being executed (if they don't finish in this time
         slot) and the ones in the queue'''
-        res = len(self.store.items)
+        res = len(self.cores.queue)
 
-        if self.is_computing() and self.time_comp_ends > self.env.now:
-            res += 1
+        for end in self.time_comp_ends.values():
+            if end > self.env.now:
+                res += 1
 
         return res
 
     def end_sim(self):
-        '''Processes the last event if it finishes at the same time as the
+        '''Processes the current requests if they finish at the same time as the
         simulation'''
-        if self.current_proc_req and self.time_comp_ends == self.env.now:
+        # Copy to a new dictionary to delete from the original dictionary while
+        # iterating and preventing a "RuntimeError: dictionary changed size
+        # during iteration"
+        time_comp_ends = self.time_comp_ends.copy()
 
+        for req, end in time_comp_ends.items():
             # This is used to compute the utilization
-            self.sec_used += self.env.now - self.current_req_start
+            self.sec_used += self.env.now - self.current_req_start[req]
 
-            self.time_comp_ends= None
-            self.current_req_start = None
+            self.current_proc_reqs.remove(req)
 
-            self.current_proc_req.end_proc()
+            del self.current_req_start[req]
+            del self.time_comp_ends[req]
+            del self.current_req_remaining_sec[req]
 
-            self.out.add_request(self.current_proc_req)
+            if end == self.env.now:
+                req.end_proc()
 
-            self.current_reqs -= 1
-            self.current_proc_req = None
+                self.out.add_request(req)
 
 class WorkloadInjector():
     '''Simulates a workload injector that generates the workload requests.
@@ -409,6 +451,7 @@ class WorkloadInjector():
 
         for _ in range(requests):
             req = Request(env=self.env, app=workload.app)
+            self.monitor.add_event(f'{self.env.now},{EvType.REQ_CREATION.value},{req.num},{workload.app.id}')
             self.out.add_request(req)
             self.monitor.add_req_injected(req)
 
@@ -472,18 +515,22 @@ class VmManager:
         load_balancer: load balancer. It is used to indicate which VMs are
             active
         request_sink: where to send the requests when they are finished
+        quantum_sec: Number of seconds used as quantum for scheduling in CPUs
     '''
 
     def __init__(self, env: simpy.Environment,
             reserved_allocation: ReservedAllocation,
             perf_values: PerformanceSet, load_balancer: LoadBalancer,
-            request_sink: RequestSink) -> None:
+            request_sink: RequestSink, monitor: Monitor,
+            quantum_sec: float) -> None:
 
         self.env = env
         self.reserved_allocation = reserved_allocation
         self.perf_values = perf_values
         self.load_balancer = load_balancer
         self.request_sink = request_sink
+        self.monitor = monitor
+        self.quantum_sec = quantum_sec
 
         # First key is app, second is instace class
         self.running_vms: Dict[App, Dict[InstanceClass, List[Vm]]] = defaultdict(lambda: defaultdict(list))
@@ -542,13 +589,14 @@ class VmManager:
 
         return res
 
-    def __launch_vms(self, ic: InstanceClass, app: App, count: int):
+    def __launch_vms(self, ic: InstanceClass, app: Optional[App], count: int):
         '''Launches count VMs of type ic'''
 
         for _ in range(int(count)):
             vm = Vm(env=self.env, ic=ic, perfs=self.perf_values,
                 out=self.request_sink,
-                load_balancer=self.load_balancer)
+                load_balancer=self.load_balancer, monitor=self.monitor,
+                quantum_sec=self.quantum_sec)
 
             self.running_vms[app][ic].append(vm)
             self.running_vms_flat.append(vm)
