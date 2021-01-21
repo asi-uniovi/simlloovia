@@ -1,3 +1,5 @@
+import sys
+import io
 import pickle
 import unittest
 
@@ -128,6 +130,42 @@ class TestBasic(unittest.TestCase):
             self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
             self.assertAlmostEqual(sim_stats.cost, 0.043052777777789895)
             self.assertAlmostEqual(sim_stats.util, 0.14717670426331843654678300347592)
+
+    def test_lost_with_trace(self):
+        '''Similar to the previous test, but with trace enabled.
+        '''
+        with open('tests/sols/basic.p', 'rb') as f:
+            # Capture stdout
+            saved_stdout = sys.stdout
+            try:
+                out = io.StringIO()
+                sys.stdout = out
+
+                sol = pickle.load(f)
+
+                sim = Simulator()
+
+                sim_stats = sim.simulate_malloovia_workload_file(
+                    sol,
+                    workload_filename_prefix='tests/workloads/lost_sec/wl',
+                    workload_period_sec=1,
+                    workload_length=4*3600,
+                    quantum_sec=3600,
+                    animate=False, speed=0.1, trace=True)
+
+            finally:
+                sys.stdout = saved_stdout
+
+                output = out.getvalue().strip()
+                self.assertTrue(output.startswith('[0] prio:'))
+
+                self.assertEqual(sim_stats.req_proc, 2)
+                self.assertEqual(sim_stats.req_lost, 1)
+                self.assertEqual(sim_stats.req_pending, 0)
+                self.assertAlmostEqual(sim_stats.avg_resp_time, 1200)
+                self.assertAlmostEqual(sim_stats.max_resp_time, 1200)
+                self.assertAlmostEqual(sim_stats.cost, 0.043052777777789895)
+                self.assertAlmostEqual(sim_stats.util, 0.14717670426331843654678300347592)
 
     def test_util(self):
         '''Tests a trace with this structure:
