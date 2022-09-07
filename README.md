@@ -38,4 +38,30 @@ Run `simlloovia --help` for more options.
 
 ***
 
+# Related publications
+
+- Joaquín Entrialgo, Manuel García, José Luis Díaz, Javier García, Daniel F.
+  García, "Modelling and simulation for cost optimization and performance
+  analysis of transactional applications in hybrid clouds", In Simulation
+  Modelling Practice and Theory, vol. 109, pp. 102311, 2021. (JCR 2021: 4.199.
+        Q1)
+        [[bibtext](http://www.atc.uniovi.es/joaquin-entrialgo/bibtexbrowser.php?key=entrialgo2021hybrid&bib=entrialgo.bib)]
+        [[doi](http://dx.doi.org/https://doi.org/10.1016/j.simpat.2021.102311)]
+
+  Please cite this work if you use `Simlloovia`. The paper describes the
+  architecture of the simulator.
+
+- Joaquín Entrialgo, José Luis Díaz, Javier García, Manuel García, Daniel F.
+  García, "Cost Minimization of Virtual Machine Allocation in Public Clouds
+  Considering Multiple Applications", In Economics of Grids, Clouds, Systems,
+  and Services: 14th International Conference, GECON 2017, Biarritz, France,
+  September 19-21, 2017, Proceedings, Springer International Publishing, Cham,
+  pp. 147-161, 2017.
+  [[bibtext](http://www.atc.uniovi.es/joaquin-entrialgo/bibtexbrowser.php?key=entrialgo2017malloovia&bib=entrialgo.bib)]
+  [[doi](http://dx.doi.org/10.1007/978-3-319-68066-8_12)]
+
+  This work describes `Malloovia`, which is used as base for `Simlloovia`.
+
+***
+
 Free software: MIT license
